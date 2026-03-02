@@ -1,30 +1,20 @@
-name: "Scanner de Vulnérabilités Web Complet"
-
-on:
-  repository_dispatch:
-    types: [web_scan_event]
-
-jobs:
-  security-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout du code
-        uses: actions/checkout@v4
-
-      - name: Scan Nuclei
+- name: Scan Nuclei (Format JSON)
         uses: projectdiscovery/nuclei-action@main
         with:
           target: ${{ github.event.client_payload.url }}
-          output: nuclei_report.txt
+          json: true
+          output: nuclei_results.json
 
-      - name: Scan OWASP ZAP
+      - name: Scan OWASP ZAP (Format JSON)
         uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: ${{ github.event.client_payload.url }}
-          artifact_name: 'zap_report'
+          cmd_options: '-J report_zap.json'
 
-      - name: Archive des rapports Nuclei
-        uses: actions/upload-artifact@v4
-        with:
-          name: rapport-nuclei
-          path: nuclei_report.txt
+      - name: Création du Rapport Unifié PFE
+        run: |
+          echo "# RAPPORT D'AUDIT DE SÉCURITÉ - PLATEFORME OFFENSIVE" > Rapport_Final.md
+          echo "## Cible : ${{ github.event.client_payload.url }}" >> Rapport_Final.md
+          echo "### Résultats des Scans : " >> Rapport_Final.md
+          cat nuclei_results.json >> Rapport_Final.md
+          # Ici on peut ajouter un script python pour rendre ça plus beau
