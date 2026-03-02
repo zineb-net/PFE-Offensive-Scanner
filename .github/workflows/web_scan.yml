@@ -1,3 +1,16 @@
+name: "Scanner de Vulnérabilités Web Complet"
+
+on:
+  repository_dispatch:
+    types: [web_scan_event]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+      
 - name: Scan Nuclei (Format JSON)
         uses: projectdiscovery/nuclei-action@main
         with:
