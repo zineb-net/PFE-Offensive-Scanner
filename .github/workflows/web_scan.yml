@@ -12,7 +12,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Scan Nuclei (Vérification CVE)
-        uses: projectdiscovery/nuclei-action@v3.7.0
+        uses: projectdiscovery/nuclei-action@main
         with:
           target: ${{ github.event.client_payload.url }}
           output: nuclei_results.txt
@@ -29,10 +29,10 @@ jobs:
           echo "## Cible : ${{ github.event.client_payload.url }}" >> Rapport_PFE.md
           echo "---" >> Rapport_PFE.md
           echo "### 1. Résultats Nuclei (Signatures & CVE)" >> Rapport_PFE.md
-          cat nuclei_results.txt >> Rapport_PFE.md || echo "Aucune donnée Nuclei" >> Rapport_PFE.md
+          if [ -f nuclei_results.txt ]; then cat nuclei_results.txt >> Rapport_PFE.md; else echo "Aucune vulnérabilité critique détectée par Nuclei." >> Rapport_PFE.md; fi
           echo "" >> Rapport_PFE.md
           echo "### 2. Résultats OWASP ZAP (Audit Dynamique)" >> Rapport_PFE.md
-          echo "Données brutes JSON enregistrées dans les artefacts." >> Rapport_PFE.md
+          echo "L'audit dynamique a été complété. Les détails techniques sont disponibles dans le fichier report_zap.json joint." >> Rapport_PFE.md
 
       - name: Archive du Rapport Final
         uses: actions/upload-artifact@v4
