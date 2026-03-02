@@ -12,11 +12,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Scan Nuclei (Vérification CVE)
-        uses: projectdiscovery/nuclei-action@main
+        uses: projectdiscovery/nuclei-action@v3.7.0
         with:
           target: ${{ github.event.client_payload.url }}
-          json: true
-          output: nuclei_results.json
+          output: nuclei_results.txt
 
       - name: Scan OWASP ZAP (Audit Dynamique)
         uses: zaproxy/action-full-scan@v0.12.0
@@ -30,13 +29,15 @@ jobs:
           echo "## Cible : ${{ github.event.client_payload.url }}" >> Rapport_PFE.md
           echo "---" >> Rapport_PFE.md
           echo "### 1. Résultats Nuclei (Signatures & CVE)" >> Rapport_PFE.md
-          cat nuclei_results.json >> Rapport_PFE.md
+          cat nuclei_results.txt >> Rapport_PFE.md || echo "Aucune donnée Nuclei" >> Rapport_PFE.md
           echo "" >> Rapport_PFE.md
           echo "### 2. Résultats OWASP ZAP (Audit Dynamique)" >> Rapport_PFE.md
-          cat report_zap.json >> Rapport_PFE.md
+          echo "Données brutes JSON enregistrées dans les artefacts." >> Rapport_PFE.md
 
       - name: Archive du Rapport Final
         uses: actions/upload-artifact@v4
         with:
           name: Rapport-Audit-Final
-          path: Rapport_PFE.md
+          path: |
+            Rapport_PFE.md
+            report_zap.json
