@@ -1,0 +1,23 @@
+name: "Scanner de Vulnérabilités Web"
+
+on:
+  repository_dispatch:
+    types: [web_scan_event]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Scan Nuclei (Vérification des vulnérabilités connues)
+        uses: projectdiscovery/nuclei-action@main
+        with:
+          target: ${{ github.event.client_payload.url }}
+
+      - name: Scan OWASP ZAP (Audit dynamique)
+        uses: owasp/zap-action@master
+        with:
+          target: ${{ github.event.client_payload.url }}
+          cmd_options: '-a'
