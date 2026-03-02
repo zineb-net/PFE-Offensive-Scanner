@@ -17,7 +17,7 @@ jobs:
           target: ${{ github.event.client_payload.url }}
 
       - name: Scan OWASP ZAP (Audit dynamique)
-        uses: owasp/zap-action@master
+        uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: ${{ github.event.client_payload.url }}
           cmd_options: '-a'
