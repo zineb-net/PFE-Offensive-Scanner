@@ -1,0 +1,24 @@
+name: "Audit de Sécurité API Spécifique"
+
+on:
+  repository_dispatch:
+    types: [api_scan_event]
+
+jobs:
+  api-security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Audit de la spécification OpenAPI
+        uses: 42Crunch/api-security-audit-action@v1
+        with:
+          discovery-path: ${{ github.event.client_payload.swagger_url }}
+          export-results: api_report.json
+
+      - name: Archive API Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rapport-API-Final
+          path: api_report.json
