@@ -1,29 +1,28 @@
-name: "Module Audit API Indépendant"
+name: "Audit Dynamique API avec Newman"
 
 on:
   repository_dispatch:
-    types: [api_scan_event] # C'est le signal envoyé par ton main_api.py
+    types: [newman_scan_event]
 
 jobs:
-  api-audit:
+  newman-audit:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout du code
-        uses: actions/checkout@v4
-
-      - name: Récupération du Swagger cible
-        run: |
-          curl -o swagger_target.json ${{ github.event.client_payload.swagger_url }}
-
-      - name: Audit de Sécurité API (42Crunch)
-        uses: 42Crunch/api-security-audit-action@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          discovery-path: 'swagger_target.json'
-          # Ce token est gratuit sur le site de 42Crunch pour les développeurs
-          api-token: ${{ secrets.API_TOKEN_42CRUNCH }} 
+          node-version: '18'
 
-      - name: Archivage du Rapport API
+      - name: Install Newman
+        run: npm install -g newman newman-reporter-htmlextra
+
+      - name: Execute Security Collection
+        run: |
+          newman run ${{ github.event.client_payload.collection }} \
+          -r htmlextra --reporter-htmlextra-export report_api.html
+
+      - name: Upload Report
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-API-${{ github.event.client_payload.api_name }}
-          path: ./*.json
+          name: Rapport-Newman-API
+          path: report_api.html
