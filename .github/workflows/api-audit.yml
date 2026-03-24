@@ -1,24 +1,29 @@
-name: "Audit de Sécurité API Spécifique"
+name: "Module Audit API Indépendant"
 
 on:
   repository_dispatch:
-    types: [api_scan_event]
+    types: [api_scan_event] # C'est le signal envoyé par ton main_api.py
 
 jobs:
-  api-security:
+  api-audit:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout du code
         uses: actions/checkout@v4
 
-      - name: Audit de la spécification OpenAPI
+      - name: Récupération du Swagger cible
+        run: |
+          curl -o swagger_target.json ${{ github.event.client_payload.swagger_url }}
+
+      - name: Audit de Sécurité API (42Crunch)
         uses: 42Crunch/api-security-audit-action@v1
         with:
-          discovery-path: ${{ github.event.client_payload.swagger_url }}
-          export-results: api_report.json
+          discovery-path: 'swagger_target.json'
+          # Ce token est gratuit sur le site de 42Crunch pour les développeurs
+          api-token: ${{ secrets.API_TOKEN_42CRUNCH }} 
 
-      - name: Archive API Report
+      - name: Archivage du Rapport API
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-API-Final
-          path: api_report.json
+          name: Rapport-API-${{ github.event.client_payload.api_name }}
+          path: ./*.json
