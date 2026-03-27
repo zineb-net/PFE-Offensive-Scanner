@@ -12,50 +12,26 @@ jobs:
         uses: actions/checkout@v4
 
       # --- ÉTAPE 1 : QUICK SCAN (NUCLEI) ---
-      # Cette étape s'exécute TOUJOURS (car Nuclei est rapide et efficace)
-      - name: Quick Scan - Nuclei (Vérification CVE)
+      - name: Quick Scan - Nuclei (JSON Output)
         uses: projectdiscovery/nuclei-action@main
         with:
           target: ${{ github.event.client_payload.url }}
-          output: nuclei_results.txt
+          json: true
+          output: nuclei_results.json
 
       # --- ÉTAPE 2 : SCAN APPROFONDI (OWASP ZAP) ---
-      # Cette étape ne s'exécute QUE SI le mode envoyé par Python est 'approf'
-      - name: Deep Scan - OWASP ZAP (Audit Dynamique)
+      - name: Deep Scan - OWASP ZAP
         if: ${{ github.event.client_payload.mode == 'approf' }}
         uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: ${{ github.event.client_payload.url }}
           cmd_options: '-J report_zap.json'
 
-      # --- ÉTAPE 3 : GÉNÉRATION DU RAPPORT SELON LE MODE ---
-      - name: Génération du Rapport Unifié
-        run: |
-          echo "# 🛡️ RAPPORT D'AUDIT : ${{ github.event.client_payload.mode == 'approf' && 'SCAN APPROFONDI' || 'QUICK SCAN' }}" > Rapport_Final.md
-          echo "## 🎯 Cible : ${{ github.event.client_payload.url }}" >> Rapport_Final.md
-          echo "---" >> Rapport_Final.md
-          
-          echo "### 🚀 1. Résultats Nuclei (Analyse de Périmètre)" >> Rapport_Final.md
-          if [ -s nuclei_results.txt ]; then 
-            echo '```' >> Rapport_Final.md
-            cat nuclei_results.txt >> Rapport_Final.md
-            echo '```' >> Rapport_Final.md
-          else 
-            echo "✅ Aucune vulnérabilité critique détectée par Nuclei." >> Rapport_Final.md
-          fi
-
-          if [ "${{ github.event.client_payload.mode }}" == "approf" ]; then
-            echo "" >> Rapport_Final.md
-            echo "### 🔍 2. Résultats OWASP ZAP (Analyse Dynamique)" >> Rapport_Final.md
-            echo "L'audit approfondi a été complété. Les détails sont dans le fichier JSON joint." >> Rapport_Final.md
-          fi
-
-      # --- ÉTAPE 4 : ARCHIVAGE ---
-      - name: Archive du Rapport
+      # --- ÉTAPE 3 : ARCHIVAGE ---
+      - name: Archive des Rapports
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.client_payload.mode == 'approf' && 'Rapport-Approfondi' || 'Rapport-QuickScan' }}
+          name: ${{ github.event.client_payload.mode == 'approf' && 'Rapport-Complet' || 'Rapport-Quick' }}
           path: |
-            Rapport_Final.md
-            nuclei_results.txt
+            nuclei_results.json
             report_zap.json
