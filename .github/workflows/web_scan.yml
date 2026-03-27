@@ -1,4 +1,4 @@
-name: "Scanner de Vulnérabilités Web Complet"
+name: "Plateforme Offensive Web - Multi-Niveaux"
 
 on:
   repository_dispatch:
@@ -11,33 +11,51 @@ jobs:
       - name: Checkout du code
         uses: actions/checkout@v4
 
-      - name: Scan Nuclei (Vérification CVE)
+      # --- ÉTAPE 1 : QUICK SCAN (NUCLEI) ---
+      # Cette étape s'exécute TOUJOURS (car Nuclei est rapide et efficace)
+      - name: Quick Scan - Nuclei (Vérification CVE)
         uses: projectdiscovery/nuclei-action@main
         with:
           target: ${{ github.event.client_payload.url }}
           output: nuclei_results.txt
 
-      - name: Scan OWASP ZAP (Audit Dynamique)
+      # --- ÉTAPE 2 : SCAN APPROFONDI (OWASP ZAP) ---
+      # Cette étape ne s'exécute QUE SI le mode envoyé par Python est 'approf'
+      - name: Deep Scan - OWASP ZAP (Audit Dynamique)
+        if: ${{ github.event.client_payload.mode == 'approf' }}
         uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: ${{ github.event.client_payload.url }}
           cmd_options: '-J report_zap.json'
 
-      - name: Création du Rapport Unifié PFE
+      # --- ÉTAPE 3 : GÉNÉRATION DU RAPPORT SELON LE MODE ---
+      - name: Génération du Rapport Unifié
         run: |
-          echo "# RAPPORT D'AUDIT DE SÉCURITÉ - PLATEFORME OFFENSIVE" > Rapport_PFE.md
-          echo "## Cible : ${{ github.event.client_payload.url }}" >> Rapport_PFE.md
-          echo "---" >> Rapport_PFE.md
-          echo "### 1. Résultats Nuclei (Signatures & CVE)" >> Rapport_PFE.md
-          if [ -f nuclei_results.txt ]; then cat nuclei_results.txt >> Rapport_PFE.md; else echo "Aucune vulnérabilité critique détectée par Nuclei." >> Rapport_PFE.md; fi
-          echo "" >> Rapport_PFE.md
-          echo "### 2. Résultats OWASP ZAP (Audit Dynamique)" >> Rapport_PFE.md
-          echo "L'audit dynamique a été complété. Les détails techniques sont disponibles dans le fichier report_zap.json joint." >> Rapport_PFE.md
+          echo "# 🛡️ RAPPORT D'AUDIT : ${{ github.event.client_payload.mode == 'approf' && 'SCAN APPROFONDI' || 'QUICK SCAN' }}" > Rapport_Final.md
+          echo "## 🎯 Cible : ${{ github.event.client_payload.url }}" >> Rapport_Final.md
+          echo "---" >> Rapport_Final.md
+          
+          echo "### 🚀 1. Résultats Nuclei (Analyse de Périmètre)" >> Rapport_Final.md
+          if [ -s nuclei_results.txt ]; then 
+            echo '```' >> Rapport_Final.md
+            cat nuclei_results.txt >> Rapport_Final.md
+            echo '```' >> Rapport_Final.md
+          else 
+            echo "✅ Aucune vulnérabilité critique détectée par Nuclei." >> Rapport_Final.md
+          fi
 
-      - name: Archive du Rapport Final
+          if [ "${{ github.event.client_payload.mode }}" == "approf" ]; then
+            echo "" >> Rapport_Final.md
+            echo "### 🔍 2. Résultats OWASP ZAP (Analyse Dynamique)" >> Rapport_Final.md
+            echo "L'audit approfondi a été complété. Les détails sont dans le fichier JSON joint." >> Rapport_Final.md
+          fi
+
+      # --- ÉTAPE 4 : ARCHIVAGE ---
+      - name: Archive du Rapport
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-Audit-Final
+          name: ${{ github.event.client_payload.mode == 'approf' && 'Rapport-Approfondi' || 'Rapport-QuickScan' }}
           path: |
-            Rapport_PFE.md
+            Rapport_Final.md
+            nuclei_results.txt
             report_zap.json
