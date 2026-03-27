@@ -12,15 +12,14 @@ jobs:
         uses: actions/checkout@v4
 
       # --- ÉTAPE 1 : QUICK SCAN (NUCLEI V3) ---
-      # Cette étape génère le fichier JSON indispensable pour DefectDojo
+      # Utilisation de 'args' pour un contrôle total et éviter l'erreur 'exit code 2'
       - name: Quick Scan - Nuclei
         uses: projectdiscovery/nuclei-action@v3
         with:
-          urls: ${{ github.event.client_payload.url }}
-          args: "-json -o nuclei_results.json"
+          args: "-u ${{ github.event.client_payload.url }} -j -o nuclei_results.json"
 
       # --- ÉTAPE 2 : SCAN APPROFONDI (OWASP ZAP) ---
-      # Ne s'exécute que si le mode 'approf' est envoyé par ton FastAPI
+      # S'exécute uniquement si le mode est 'approf'
       - name: Deep Scan - OWASP ZAP
         if: ${{ github.event.client_payload.mode == 'approf' }}
         uses: zaproxy/action-full-scan@v0.12.0
@@ -29,7 +28,7 @@ jobs:
           cmd_options: '-J report_zap.json'
 
       # --- ÉTAPE 3 : ARCHIVAGE DES RÉSULTATS ---
-      # On crée un dossier ZIP contenant les rapports pour les télécharger
+      # Création de l'artéfact téléchargeable (ZIP)
       - name: Archive des Rapports
         uses: actions/upload-artifact@v4
         with:
@@ -37,5 +36,4 @@ jobs:
           path: |
             nuclei_results.json
             report_zap.json
-          # if-no-files-found: warn permet de ne pas faire échouer le job si ZAP n'a pas tourné
           if-no-files-found: warn
