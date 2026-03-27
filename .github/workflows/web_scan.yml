@@ -12,12 +12,13 @@ jobs:
         uses: actions/checkout@v4
 
       # --- ÉTAPE 1 : QUICK SCAN (NUCLEI) ---
-      - name: Quick Scan - Nuclei (JSON Output)
-        uses: projectdiscovery/nuclei-action@main
+      - name: Quick Scan - Nuclei
+        uses: projectdiscovery/nuclei-action@v3
         with:
           target: ${{ github.event.client_payload.url }}
-          json: true
-          output: nuclei_results.json
+          # On retire 'json: true' car l'action v3 gère mieux les sorties par défaut
+          # On utilise flags pour spécifier exactement le format attendu par DefectDojo
+          flags: "-j -o nuclei_results.json"
 
       # --- ÉTAPE 2 : SCAN APPROFONDI (OWASP ZAP) ---
       - name: Deep Scan - OWASP ZAP
