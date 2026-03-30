@@ -1,0 +1,24 @@
+name: "AD Offensive Module - Phase 1"
+
+on:
+  workflow_dispatch: # Pour pouvoir le lancer avec un bouton "Play" sur GitHub
+
+jobs:
+  reconnaissance:
+    # On cible ta Kali grâce aux labels que tu as mis !
+    runs-on: [self-hosted, kali]
+    
+    steps:
+      - name: Vérifier la connexion avec le DC
+        run: ping -c 3 192.168.159.100
+
+      - name: Scan de vulnérabilités SMB (Nmap)
+        run: |
+          # On cherche les failles critiques (EternalBlue, SMB Signing, etc.)
+          nmap -sV -p 445 --script smb-vuln* 192.168.159.100 -oX ad_report.xml
+
+      - name: Sauvegarder le rapport
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rapport-AD-Brut
+          path: ad_report.xml
