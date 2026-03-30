@@ -1,24 +1,26 @@
-name: "AD Offensive Module - Phase 1"
+name: "AD Offensive Module - Recon Phase"
 
 on:
-  workflow_dispatch: # Pour pouvoir le lancer avec un bouton "Play" sur GitHub
+  workflow_dispatch: # Permet de le lancer manuellement avec le bouton "Run workflow"
+  repository_dispatch:
+    types: [ad_scan_event] # Pour ton futur bouton sur ton Dashboard React
 
 jobs:
   reconnaissance:
-    # On cible ta Kali grâce aux labels que tu as mis !
+    # On utilise ton Runner Kali !
     runs-on: [self-hosted, kali]
     
     steps:
-      - name: Vérifier la connexion avec le DC
+      - name: Vérifier la connectivité avec le DC
         run: ping -c 3 192.168.159.100
 
-      - name: Scan de vulnérabilités SMB (Nmap)
+      - name: Scan de vulnérabilités (Nmap Scripts)
         run: |
-          # On cherche les failles critiques (EternalBlue, SMB Signing, etc.)
+          # Recherche de vulnérabilités SMB critiques
           nmap -sV -p 445 --script smb-vuln* 192.168.159.100 -oX ad_report.xml
 
-      - name: Sauvegarder le rapport
+      - name: Upload du rapport brut
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-AD-Brut
+          name: Rapport-AD-Nmap
           path: ad_report.xml
