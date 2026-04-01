@@ -1,4 +1,4 @@
-name: "AD Offensive Module - Recon Phase"
+name: "AD Offensive Module - Advanced Vulnerability Scan"
 
 on:
   workflow_dispatch:
@@ -10,19 +10,19 @@ jobs:
     runs-on: [self-hosted, kali]
     
     steps:
-      - name: Vérifier la connectivité avec le DC
+      - name: Vérifier la connectivité
         run: ping -c 3 192.168.159.100
 
-      - name: Scan complet des ports AD & Vulnérabilités
+      - name: Scan Profond (Enumération & Sécurité SMB)
         run: |
-          # -Pn : Force le scan même si le serveur est "silencieux"
-          # -sV : Détecte les versions des services
-          # -p : On scanne SMB(445), RPC(135), Kerberos(88), LDAP(389) et DNS(53)
-          # --script : On garde les scripts de vulnérabilités SMB
-          nmap -Pn -sV -p 445,135,139,88,389,53 --script smb-vuln* 192.168.159.100 -oX ad_report.xml
+          # smb-protocols : vérifie si SMBv1 (dangereux) est actif
+          # smb-security-mode : vérifie si la signature SMB est obligatoire
+          # smb-enum-shares : liste les dossiers partagés accessibles
+          # smb2-security-mode : vérifie la sécurité sur les versions récentes
+          nmap -Pn -p 445 --script smb-protocols,smb-security-mode,smb-enum-shares,smb2-security-mode 192.168.159.100 -oX ad_report.xml
 
-      - name: Upload du rapport brut
+      - name: Upload du rapport détaillé
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-AD-Nmap-Complet
+          name: Rapport-AD-Advanced
           path: ad_report.xml
