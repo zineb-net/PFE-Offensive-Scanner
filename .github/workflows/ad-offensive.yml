@@ -1,26 +1,28 @@
 name: "AD Offensive Module - Recon Phase"
 
 on:
-  workflow_dispatch: # Permet de le lancer manuellement avec le bouton "Run workflow"
+  workflow_dispatch:
   repository_dispatch:
-    types: [ad_scan_event] # Pour ton futur bouton sur ton Dashboard React
+    types: [ad_scan_event]
 
 jobs:
   reconnaissance:
-    # On utilise ton Runner Kali !
     runs-on: [self-hosted, kali]
     
     steps:
       - name: Vérifier la connectivité avec le DC
         run: ping -c 3 192.168.159.100
 
-      - name: Scan de vulnérabilités (Nmap Scripts)
+      - name: Scan complet des ports AD & Vulnérabilités
         run: |
-          # Recherche de vulnérabilités SMB critiques
-          nmap -sV -p 445 --script smb-vuln* 192.168.159.100 -oX ad_report.xml
+          # -Pn : Force le scan même si le serveur est "silencieux"
+          # -sV : Détecte les versions des services
+          # -p : On scanne SMB(445), RPC(135), Kerberos(88), LDAP(389) et DNS(53)
+          # --script : On garde les scripts de vulnérabilités SMB
+          nmap -Pn -sV -p 445,135,139,88,389,53 --script smb-vuln* 192.168.159.100 -oX ad_report.xml
 
       - name: Upload du rapport brut
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-AD-Nmap
+          name: Rapport-AD-Nmap-Complet
           path: ad_report.xml
