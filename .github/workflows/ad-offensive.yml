@@ -1,33 +1,33 @@
-name: "AD Offensive Module - Recon Phase (Black Box)"
+name: "AD Offensive Module - Authenticated Enum"
 
 on:
-  workflow_dispatch: # Lancement manuel via le bouton "Run workflow"
-  repository_dispatch:
-    types: [ad_scan_event] # Pour ton futur bouton sur ton Dashboard React
+  workflow_dispatch:
 
 jobs:
   reconnaissance:
-    # Utilisation de ton runner Kali Linux local
     runs-on: [self-hosted, kali]
     
     steps:
-      - name: 1. Vérification de la connectivité (Ping)
-        run: |
-          echo "Vérification de la route réseau vers le contrôleur de domaine..."
-          ping -c 3 192.168.159.100
+      - name: 1. Vérification réseau
+        run: ping -c 3 192.168.159.100
 
-      - name: 2. Scan Nmap Anonyme (Énumération Sans Mot de Passe)
+      - name: 2. Énumération Authentifiée (Users & Shares)
+        env:
+          USER: ${{ secrets.AD_USER }}
+          PASS: ${{ secrets.AD_PASSWORD }}
         run: |
-          # Objectif : Extraire le maximum d'infos sans identifiants
-          # -Pn : Ignore le blocage du ping par le pare-feu
-          # -p 135,139,445 : Ports critiques RPC et SMB de l'Active Directory
+          # Utilisation des identifiants pour débloquer les infos AD
+          # smb-enum-users : Liste tous les utilisateurs du domaine
+          # smb-enum-shares : Liste tous les dossiers partagés
+          # smb-os-discovery : Récupère le nom DNS complet du domaine
           
-          nmap -Pn -p 135,139,445 \
-            --script smb-protocols,smb-os-discovery,smb-enum-shares,smb2-security-mode \
+          nmap -Pn -p 445 \
+            --script smb-enum-users,smb-enum-shares,smb-os-discovery \
+            --script-args smbuser=$USER,smbpass=$PASS \
             192.168.159.100 -oX ad_report.xml
 
-      - name: 3. Archivage du rapport XML pour analyse
+      - name: 3. Upload du rapport complet
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-AD-BlackBox
+          name: Rapport-AD-Authentifie
           path: ad_report.xml
