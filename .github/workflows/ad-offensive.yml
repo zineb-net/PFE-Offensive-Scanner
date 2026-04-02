@@ -1,28 +1,33 @@
-name: "AD Offensive Module - Advanced Vulnerability Scan"
+name: "AD Offensive Module - Recon Phase (Black Box)"
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Lancement manuel via le bouton "Run workflow"
   repository_dispatch:
-    types: [ad_scan_event]
+    types: [ad_scan_event] # Pour ton futur bouton sur ton Dashboard React
 
 jobs:
   reconnaissance:
+    # Utilisation de ton runner Kali Linux local
     runs-on: [self-hosted, kali]
     
     steps:
-      - name: Vérifier la connectivité
-        run: ping -c 3 192.168.159.100
-
-      - name: Scan Profond (Enumération & Sécurité SMB)
+      - name: 1. Vérification de la connectivité (Ping)
         run: |
-          # smb-protocols : vérifie si SMBv1 (dangereux) est actif
-          # smb-security-mode : vérifie si la signature SMB est obligatoire
-          # smb-enum-shares : liste les dossiers partagés accessibles
-          # smb2-security-mode : vérifie la sécurité sur les versions récentes
-          nmap -Pn -p 445 --script smb-protocols,smb-security-mode,smb-enum-shares,smb2-security-mode 192.168.159.100 -oX ad_report.xml
+          echo "Vérification de la route réseau vers le contrôleur de domaine..."
+          ping -c 3 192.168.159.100
 
-      - name: Upload du rapport détaillé
+      - name: 2. Scan Nmap Anonyme (Énumération Sans Mot de Passe)
+        run: |
+          # Objectif : Extraire le maximum d'infos sans identifiants
+          # -Pn : Ignore le blocage du ping par le pare-feu
+          # -p 135,139,445 : Ports critiques RPC et SMB de l'Active Directory
+          
+          nmap -Pn -p 135,139,445 \
+            --script smb-protocols,smb-os-discovery,smb-enum-shares,smb2-security-mode \
+            192.168.159.100 -oX ad_report.xml
+
+      - name: 3. Archivage du rapport XML pour analyse
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-AD-Advanced
+          name: Rapport-AD-BlackBox
           path: ad_report.xml
