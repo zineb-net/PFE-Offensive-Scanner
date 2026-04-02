@@ -27,7 +27,7 @@ jobs:
             --script smb-protocols,smb2-security-mode,smb-os-discovery \
             192.168.159.100 -oX ad_report.xml
 
-     # --- SCÉNARIO B : SCAN AUTHENTIFIÉ (VERSION BASH REDIRECTION) ---
+     # --- SCÉNARIO B : SCAN AUTHENTIFIÉ (VERSION REDIRECTION) ---
       - name: Lancer Scan Authentifié Profond
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
         env:
@@ -35,10 +35,9 @@ jobs:
           PASS: ${{ secrets.AD_PASSWORD }}
           DOMAIN: "PFE"
         run: |
-          # On demande à enum4linux-ng d'afficher le résultat en JSON (-oJ) 
-          # MAIS on ne lui donne pas de fichier, on utilise '>' pour capturer la sortie.
-          # On ajoute '|| true' pour que le workflow ne s'arrête pas si l'outil trouve des erreurs mineures.
-          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A -oJ 192.168.159.100 > ad_report.json || true
+          # On lance le scan et on capture TOUT ce qui s'affiche dans ad_report.json
+          # On ajoute '|| true' pour que GitHub ne bloque pas si l'outil détecte des vulnérabilités
+          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A 192.168.159.100 > ad_report.json || true
 
       # --- ÉTAPE COMMUNE : EXPORT DU RAPPORT ---
       - name: Archivage du rapport
