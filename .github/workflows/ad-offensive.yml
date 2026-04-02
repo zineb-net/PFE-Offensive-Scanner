@@ -1,33 +1,37 @@
 name: "AD Offensive Module - Authenticated Enum"
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Permet de lancer le scan manuellement
 
 jobs:
   reconnaissance:
+    # Utilisation de ton runner Kali Linux local
     runs-on: [self-hosted, kali]
     
     steps:
-      - name: 1. Vérification réseau
-        run: ping -c 3 192.168.159.100
+      - name: 1. Vérification de la connectivité
+        run: |
+          echo "Test de ping vers le DC (192.168.159.100)..."
+          ping -c 3 192.168.159.100
 
-      - name: 2. Énumération Authentifiée (Users & Shares)
+      - name: 2. Énumération Authentifiée AD (Users & Shares)
         env:
+          # On récupère les secrets que tu as configurés sur GitHub
           USER: ${{ secrets.AD_USER }}
           PASS: ${{ secrets.AD_PASSWORD }}
         run: |
-          # Utilisation des identifiants pour débloquer les infos AD
-          # smb-enum-users : Liste tous les utilisateurs du domaine
-          # smb-enum-shares : Liste tous les dossiers partagés
-          # smb-os-discovery : Récupère le nom DNS complet du domaine
+          # Commande Nmap optimisée pour ton PFE
+          # -Pn : Ignore le blocage du ping
+          # --script : Les 3 scripts essentiels pour l'AD
+          # --script-args : Utilisation sécurisée des identifiants
           
           nmap -Pn -p 445 \
             --script smb-enum-users,smb-enum-shares,smb-os-discovery \
-            --script-args smbuser=$USER,smbpass=$PASS \
+            --script-args "smbuser=$USER,smbpass=$PASS" \
             192.168.159.100 -oX ad_report.xml
 
-      - name: 3. Upload du rapport complet
+      - name: 3. Archivage du rapport final
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-AD-Authentifie
+          name: Rapport-AD-Complet
           path: ad_report.xml
