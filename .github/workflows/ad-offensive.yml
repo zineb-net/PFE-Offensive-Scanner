@@ -1,29 +1,27 @@
 name: "AD Offensive Module - Authenticated Enum"
 
 on:
-  workflow_dispatch: # Permet de lancer le scan manuellement
+  workflow_dispatch: # Bouton "Run workflow" sur GitHub
 
 jobs:
   reconnaissance:
-    # Utilisation de ton runner Kali Linux local
+    # Utilisation de ton runner Kali local
     runs-on: [self-hosted, kali]
     
     steps:
-      - name: 1. Vérification de la connectivité
-        run: |
-          echo "Test de ping vers le DC (192.168.159.100)..."
-          ping -c 3 192.168.159.100
+      - name: 1. Vérification réseau
+        run: ping -c 3 192.168.159.100
 
       - name: 2. Énumération Authentifiée AD (Users & Shares)
         env:
-          # On récupère les secrets que tu as configurés sur GitHub
+          # On appelle les secrets que tu viens de créer
           USER: ${{ secrets.AD_USER }}
           PASS: ${{ secrets.AD_PASSWORD }}
         run: |
-          # Commande Nmap optimisée pour ton PFE
-          # -Pn : Ignore le blocage du ping
-          # --script : Les 3 scripts essentiels pour l'AD
-          # --script-args : Utilisation sécurisée des identifiants
+          # Commande Nmap optimisée
+          # smb-enum-users : va extraire tes 3 utilisateurs
+          # smb-enum-shares : va lister les dossiers partagés
+          # smb-os-discovery : va donner le nom DNS du domaine
           
           nmap -Pn -p 445 \
             --script smb-enum-users,smb-enum-shares,smb-os-discovery \
