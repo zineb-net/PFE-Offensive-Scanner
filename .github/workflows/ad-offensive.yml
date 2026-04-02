@@ -26,21 +26,19 @@ jobs:
           nmap -Pn -p 445 \
             --script smb-protocols,smb2-security-mode,smb-os-discovery \
             192.168.159.100 -oX ad_anonyme.xml
-
-      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ ---
-      - name: Lancer Scan Authentifié
+# --- SCÉNARIO B : SCAN AUTHENTIFIÉ (ENUM4LINUX-NG CORRIGÉ) ---
+      - name: Lancer Scan Authentifié Profond
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
         env:
-          USER: ${{ secrets.AD_USER }}
+          USER: "user.std"
           PASS: ${{ secrets.AD_PASSWORD }}
+          DOMAIN: "PFE"
         run: |
-          nmap -Pn -p 445 \
-            --script smb-enum-users,smb-enum-shares \
-            --script-args "smbuser='${USER}',smbpass='${PASS}'" \
-            192.168.159.100 -oX ad_authentifie.xml
+          # Utilisation de -w pour le domaine et placement de l'IP à la fin
+          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A 192.168.159.100 -oJ rapport_ad.json
 
-      - name: Sauvegarder le rapport (selon le choix)
+      - name: Upload Rapport JSON
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-AD-${{ github.event.inputs.scan_type }}
-          path: "*.xml"
+          name: Rapport-AD-JSON
+          path: rapport_ad.json
