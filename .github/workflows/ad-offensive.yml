@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       scan_type:
-        description: 'Stratégie de scan'
+        description: 'Stratégie de scan à lancer'
         required: true
         default: 'anonyme'
         type: choice
@@ -19,29 +19,31 @@ jobs:
       - name: 1. Vérification réseau
         run: ping -c 2 192.168.159.100
 
-      # --- SCÉNARIO A : SCAN ANONYME (Nmap XML) ---
-      - name: Lancer Scan Anonyme
+      # --- SCÉNARIO A : SCAN ANONYME (RECONNAISSANCE BLACK BOX) ---
+      - name: Lancer Scan Anonyme (Nmap)
         if: ${{ github.event.inputs.scan_type == 'anonyme' }}
         run: |
+          # On cherche les protocoles et la sécurité SMB sans login
           nmap -Pn -p 445 \
             --script smb-protocols,smb2-security-mode,smb-os-discovery \
             192.168.159.100 -oX ad_report.xml
 
-     # --- SCÉNARIO B : SCAN AUTHENTIFIÉ (VERSION REDIRECTION) ---
-      - name: Lancer Scan Authentifié Profond
+      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ (ÉNUMÉRATION WHITE BOX) ---
+      - name: Lancer Scan Authentifié Profond (Enum4linux-ng)
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
         env:
           USER: "user.std"
           PASS: ${{ secrets.AD_PASSWORD }}
           DOMAIN: "PFE"
         run: |
-          # On lance le scan et on capture TOUT ce qui s'affiche dans ad_report.json
-          # On ajoute '|| true' pour que GitHub ne bloque pas si l'outil détecte des vulnérabilités
+          # On utilise '>' pour créer le fichier ad_report.json sans erreur de dossier
+          # -A : Lance tous les tests (Users, Groupes, Shares, Password Policy)
+          # || true : Empêche GitHub de marquer en rouge si des failles sont trouvées
           enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A 192.168.159.100 > ad_report.json || true
 
-      # --- ÉTAPE COMMUNE : EXPORT DU RAPPORT ---
+      # --- ÉTAPE COMMUNE : ARCHIVAGE DU RAPPORT POUR LE DASHBOARD ---
       - name: Archivage du rapport
-        if: always()
+        if: always() # Obligatoire pour récupérer le fichier même si l'outil renvoie une alerte
         uses: actions/upload-artifact@v4
         with:
           name: rapport-${{ github.event.inputs.scan_type }}
