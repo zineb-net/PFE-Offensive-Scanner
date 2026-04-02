@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       scan_type:
-        description: 'Type de scan à réaliser'
+        description: 'Stratégie de scan'
         required: true
         default: 'anonyme'
         type: choice
@@ -19,14 +19,15 @@ jobs:
       - name: 1. Vérification réseau
         run: ping -c 2 192.168.159.100
 
-      # --- SCÉNARIO A : SCAN ANONYME ---
+      # --- SCÉNARIO A : SCAN ANONYME (Nmap XML) ---
       - name: Lancer Scan Anonyme
         if: ${{ github.event.inputs.scan_type == 'anonyme' }}
         run: |
           nmap -Pn -p 445 \
             --script smb-protocols,smb2-security-mode,smb-os-discovery \
-            192.168.159.100 -oX ad_anonyme.xml
-# --- SCÉNARIO B : SCAN AUTHENTIFIÉ (ENUM4LINUX-NG) ---
+            192.168.159.100 -oX ad_report.xml
+
+      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ (Enum4linux-ng JSON) ---
       - name: Lancer Scan Authentifié Profond
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
         env:
@@ -34,13 +35,13 @@ jobs:
           PASS: ${{ secrets.AD_PASSWORD }}
           DOMAIN: "PFE"
         run: |
-          # On lance le scan sans l'option d'export JSON pour valider la sortie
-          # -A : Tous les tests
-          # On redirige la sortie texte vers un fichier pour ne pas la perdre
-          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A 192.168.159.100 | tee rapport_ad.txt
+          # On génère maintenant le JSON (-oJ) car c'est le top pour React
+          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A 192.168.159.100 -oJ ad_report.json
 
-      - name: Upload Rapport Texte
+      # --- ÉTAPE COMMUNE : EXPORT DU RAPPORT ---
+      - name: Archivage du rapport
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-AD-Debug
-          path: rapport_ad.txt
+          name: rapport-${{ github.event.inputs.scan_type }}
+          # On accepte .xml ou .json pour que l'étape ne plante jamais
+          path: ad_report.*
