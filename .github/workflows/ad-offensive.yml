@@ -1,35 +1,47 @@
-name: "AD Offensive Module - Authenticated Enum"
+name: "AD Offensive - Stratégie de Scan Séparée"
 
 on:
-  workflow_dispatch: # Bouton "Run workflow" sur GitHub
+  workflow_dispatch:
 
 jobs:
-  reconnaissance:
-    # Utilisation de ton runner Kali local
+  # --- JOB 1 : SCAN SANS AUTHENTIFICATION (BLACK BOX) ---
+  scan_anonyme:
+    name: "Phase 1: Reconnaissance Anonyme"
     runs-on: [self-hosted, kali]
-    
     steps:
-      - name: 1. Vérification réseau
-        run: ping -c 3 192.168.159.100
+      - name: Scan SMB Anonyme
+        run: |
+          # On teste juste si le serveur est bavard sans mot de passe
+          nmap -Pn -p 445 \
+            --script smb-protocols,smb2-security-mode,smb-os-discovery \
+            192.168.159.100 -oX rapport_anonyme.xml
 
-      - name: 2. Énumération Authentifiée AD (Users & Shares)
+      - name: Upload Rapport Anonyme
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rapport-AD-Anonyme
+          path: rapport_anonyme.xml
+
+  # --- JOB 2 : SCAN AVEC AUTHENTIFICATION (WHITE BOX) ---
+  scan_authentifie:
+    name: "Phase 2: Énumération avec Identifiants"
+    needs: scan_anonyme # Se lance après le premier job
+    runs-on: [self-hosted, kali]
+    steps:
+      - name: Énumération AD avec user.std
         env:
-          # On appelle les secrets que tu viens de créer
           USER: ${{ secrets.AD_USER }}
           PASS: ${{ secrets.AD_PASSWORD }}
         run: |
-          # Commande Nmap optimisée
-          # smb-enum-users : va extraire tes 3 utilisateurs
-          # smb-enum-shares : va lister les dossiers partagés
-          # smb-os-discovery : va donner le nom DNS du domaine
-          
+          # Ici on force l'extraction des utilisateurs et des partages
+          # Note: On utilise des guillemets simples pour protéger le mot de passe
           nmap -Pn -p 445 \
-            --script smb-enum-users,smb-enum-shares,smb-os-discovery \
-            --script-args "smbuser=$USER,smbpass=$PASS" \
-            192.168.159.100 -oX ad_report.xml
+            --script smb-enum-users,smb-enum-shares \
+            --script-args "smbuser='${USER}',smbpass='${PASS}'" \
+            192.168.159.100 -oX rapport_authentifie.xml
 
-      - name: 3. Archivage du rapport final
+      - name: Upload Rapport Authentifié
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-AD-Complet
-          path: ad_report.xml
+          name: Rapport-AD-Authentifie
+          path: rapport_authentifie.xml
