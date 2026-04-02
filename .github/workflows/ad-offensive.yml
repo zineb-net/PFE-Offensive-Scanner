@@ -1,47 +1,46 @@
-name: "AD Offensive - Stratégie de Scan Séparée"
+name: "AD Offensive Platform - Choix du Scan"
 
 on:
   workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type de scan à réaliser'
+        required: true
+        default: 'anonyme'
+        type: choice
+        options:
+          - anonyme
+          - authentifie
 
 jobs:
-  # --- JOB 1 : SCAN SANS AUTHENTIFICATION (BLACK BOX) ---
-  scan_anonyme:
-    name: "Phase 1: Reconnaissance Anonyme"
+  offensive_task:
     runs-on: [self-hosted, kali]
     steps:
-      - name: Scan SMB Anonyme
+      - name: 1. Vérification réseau
+        run: ping -c 2 192.168.159.100
+
+      # --- SCÉNARIO A : SCAN ANONYME ---
+      - name: Lancer Scan Anonyme
+        if: ${{ github.event.inputs.scan_type == 'anonyme' }}
         run: |
-          # On teste juste si le serveur est bavard sans mot de passe
           nmap -Pn -p 445 \
             --script smb-protocols,smb2-security-mode,smb-os-discovery \
-            192.168.159.100 -oX rapport_anonyme.xml
+            192.168.159.100 -oX ad_anonyme.xml
 
-      - name: Upload Rapport Anonyme
-        uses: actions/upload-artifact@v4
-        with:
-          name: Rapport-AD-Anonyme
-          path: rapport_anonyme.xml
-
-  # --- JOB 2 : SCAN AVEC AUTHENTIFICATION (WHITE BOX) ---
-  scan_authentifie:
-    name: "Phase 2: Énumération avec Identifiants"
-    needs: scan_anonyme # Se lance après le premier job
-    runs-on: [self-hosted, kali]
-    steps:
-      - name: Énumération AD avec user.std
+      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ ---
+      - name: Lancer Scan Authentifié
+        if: ${{ github.event.inputs.scan_type == 'authentifie' }}
         env:
           USER: ${{ secrets.AD_USER }}
           PASS: ${{ secrets.AD_PASSWORD }}
         run: |
-          # Ici on force l'extraction des utilisateurs et des partages
-          # Note: On utilise des guillemets simples pour protéger le mot de passe
           nmap -Pn -p 445 \
             --script smb-enum-users,smb-enum-shares \
             --script-args "smbuser='${USER}',smbpass='${PASS}'" \
-            192.168.159.100 -oX rapport_authentifie.xml
+            192.168.159.100 -oX ad_authentifie.xml
 
-      - name: Upload Rapport Authentifié
+      - name: Sauvegarder le rapport (selon le choix)
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-AD-Authentifie
-          path: rapport_authentifie.xml
+          name: Rapport-AD-${{ github.event.inputs.scan_type }}
+          path: "*.xml"
