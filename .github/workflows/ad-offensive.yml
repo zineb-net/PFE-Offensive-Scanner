@@ -27,7 +27,7 @@ jobs:
             --script smb-protocols,smb2-security-mode,smb-os-discovery \
             192.168.159.100 -oX ad_report.xml
 
-      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ (Enum4linux-ng JSON) ---
+      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ (ENUM4LINUX-NG) ---
       - name: Lancer Scan Authentifié Profond
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
         env:
@@ -35,13 +35,13 @@ jobs:
           PASS: ${{ secrets.AD_PASSWORD }}
           DOMAIN: "PFE"
         run: |
-          # On génère maintenant le JSON (-oJ) car c'est le top pour React
+          # Correction de l'extension et utilisation de l'IP à la fin
           enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A 192.168.159.100 -oJ ad_report.json
 
       # --- ÉTAPE COMMUNE : EXPORT DU RAPPORT ---
       - name: Archivage du rapport
+        if: always() # S'exécute même si le scan a trouvé des vulnérabilités (exit code 1)
         uses: actions/upload-artifact@v4
         with:
           name: rapport-${{ github.event.inputs.scan_type }}
-          # On accepte .xml ou .json pour que l'étape ne plante jamais
           path: ad_report.*
