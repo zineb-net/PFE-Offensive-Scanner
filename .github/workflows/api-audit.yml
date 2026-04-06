@@ -1,26 +1,45 @@
-name: "Audit Dynamique API avec Newman"
+name: API Security Audit (Newman)
 
+# Le workflow se déclenche via l'ordre envoyé par ton script Python (Repository Dispatch)
 on:
   repository_dispatch:
     types: [newman_scan_event]
 
 jobs:
   newman-audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Utilise un exécuteur GitHub standard
+
     steps:
-      - name: Install Node.js
-        uses: actions/setup-node@v4
+      # 1. On récupère les fichiers de TON dépôt (dont le fichier JSON)
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # 2. On installe Node.js
+      - name: Setup Node.js
+        uses: actions/checkout@v3
         with:
           node-version: '18'
 
+      # 3. On installe Newman et le générateur de rapport HTML
       - name: Install Newman
-        run: npm install -g newman newman-reporter-htmlextra
+        run: |
+          npm install -g newman
+          npm install -g newman-reporter-htmlextra
 
+      # 4. EXÉCUTION DU SCAN (C'est ici qu'on utilise le fichier local)
       - name: Execute Security Collection
-        run: newman run vAPI.postman_collection.json --reporters cli,htmlextra --reporter-htmlextra-export report.html
+        run: |
+          newman run vAPI.postman_collection.json \
+          --reporters cli,htmlextra \
+          --reporter-htmlextra-export report.html \
+          --env-var "baseUrl=${{ github.event.client_payload.env }}" \
+          --timeout-request 5000 \
+          --ignore-redirects
 
-      - name: Upload Report
+      # 5. On sauvegarde le rapport HTML pour pouvoir le télécharger
+      - name: Upload Scan Report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Rapport-Newman-API
-          path: report_api.html
+          name: api-security-report
+          path: report.html
