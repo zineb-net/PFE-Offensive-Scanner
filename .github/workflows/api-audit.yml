@@ -1,22 +1,27 @@
 name: API Security Audit (Newman)
 
-# Déclenché par ton script FastAPI (Python)
 on:
   repository_dispatch:
     types: [newman_scan_event]
 
 jobs:
   newman-audit:
-    # --- TRÈS IMPORTANT : Dit à GitHub d'utiliser ta KALI ---
+    # On utilise ton Runner-API-Offensive sur ta Kali
     runs-on: self-hosted 
 
     steps:
-      # 1. Récupère le fichier vAPI.postman_collection.json depuis ton dépôt
+      # 1. Récupération des fichiers du dépôt
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Exécute le scan Newman directement depuis ta Kali
-      # On utilise l'IP locale de ton Ubuntu car la Kali est dans le même réseau
+      # 2. Vérification/Installation rapide de Newman sur la Kali
+      - name: Check Newman Installation
+        run: |
+          npm install -g newman newman-reporter-htmlextra
+          echo "Newman version:"
+          newman -v
+
+      # 3. EXÉCUTION DU SCAN (C'est ici que le rapport est créé)
       - name: Execute Security Collection
         run: |
           newman run vAPI.postman_collection.json \
@@ -26,9 +31,10 @@ jobs:
           --env-var "baseUrl=http://192.168.159.131:8000" \
           --timeout-request 10000 \
           --ignore-redirects
-        continue-on-error: true # Indispensable pour générer le rapport même si des failles sont trouvées
+        # On continue même si Newman trouve des failles (exit code 1)
+        continue-on-error: true 
 
-      # 3. Envoie le rapport HTML final sur GitHub (Ton résultat de PFE)
+      # 4. ENVOI DU RAPPORT SUR GITHUB (Pour téléchargement)
       - name: Upload Scan Report
         if: always()
         uses: actions/upload-artifact@v4
