@@ -17,9 +17,7 @@ jobs:
         run: npm install -g newman newman-reporter-htmlextra
 
       - name: Execute Security Collection
-        run: |
-          newman run ${{ github.event.client_payload.collection }} \
-          -r htmlextra --reporter-htmlextra-export report_api.html
+        run: newman run vAPI.postman_collection.json --reporters cli,htmlextra --reporter-htmlextra-export report.html
 
       - name: Upload Report
         uses: actions/upload-artifact@v4
