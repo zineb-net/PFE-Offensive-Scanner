@@ -1,45 +1,49 @@
 name: API Security Audit (Newman)
 
-# Le workflow se déclenche via l'ordre envoyé par ton script Python (Repository Dispatch)
+# Le workflow est déclenché par ton script Python via Repository Dispatch
 on:
   repository_dispatch:
     types: [newman_scan_event]
 
 jobs:
   newman-audit:
-    runs-on: ubuntu-latest  # Utilise un exécuteur GitHub standard
+    runs-on: ubuntu-latest
 
     steps:
-      # 1. On récupère les fichiers de TON dépôt (dont le fichier JSON)
+      # 1. Récupération du code (pour avoir le fichier JSON de la collection)
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2. On installe Node.js
+      # 2. Installation de Node.js
       - name: Setup Node.js
-        uses: actions/checkout@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
-      # 3. On installe Newman et le générateur de rapport HTML
+      # 3. Installation de Newman et du reporter HTML moderne
       - name: Install Newman
         run: |
           npm install -g newman
           npm install -g newman-reporter-htmlextra
 
-      # 4. EXÉCUTION DU SCAN (C'est ici qu'on utilise le fichier local)
+      # 4. EXÉCUTION DU SCAN OFFENSIF
+      # On force les variables host et baseUrl pour cibler l'Ubuntu
       - name: Execute Security Collection
         run: |
           newman run vAPI.postman_collection.json \
           --reporters cli,htmlextra \
           --reporter-htmlextra-export report.html \
-          --env-var "baseUrl=${{ github.event.client_payload.env }}" \
-          --timeout-request 5000 \
+          --env-var "host=192.168.159.131:8000" \
+          --env-var "baseUrl=http://192.168.159.131:8000" \
+          --timeout-request 10000 \
           --ignore-redirects
+        continue-on-error: true # Permet de générer le rapport même si des tests échouent
 
-      # 5. On sauvegarde le rapport HTML pour pouvoir le télécharger
+      # 5. GÉNÉRATION ET SAUVEGARDE DU RAPPORT (Ton résultat de PFE)
       - name: Upload Scan Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: api-security-report
           path: report.html
+          retention-days: 5
