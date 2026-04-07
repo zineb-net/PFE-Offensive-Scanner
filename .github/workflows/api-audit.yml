@@ -1,33 +1,45 @@
-name: API Security Audit (Newman)
+name: API Offensive Audit to DefectDojo
 
 on:
   repository_dispatch:
     types: [newman_scan_event]
 
 jobs:
-  newman-audit:
-    runs-on: self-hosted 
+  api-audit:
+    runs-on: self-hosted
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # On retire l'installation NPM car elle demande des droits SUDO que le runner n'a pas
-      - name: Execute Security Collection
+      # 1. Exécution du scan (Génère HTML pour toi et JSON pour Dojo)
+      - name: Execute Newman Scan
         run: |
           newman run vAPI.postman_collection.json \
-          --reporters cli,htmlextra \
+          --reporters cli,htmlextra,json \
           --reporter-htmlextra-export report.html \
+          --reporter-json-export report.json \
           --env-var "host=192.168.159.131:8000" \
           --env-var "baseUrl=http://192.168.159.131:8000" \
-          --timeout-request 10000 \
-          --ignore-redirects
-        continue-on-error: true 
+          --timeout-request 10000
+        continue-on-error: true
 
-      - name: Upload Scan Report
+      # 2. Importation automatique dans DefectDojo
+      - name: Upload to DefectDojo
+        run: |
+          curl -X POST "${{ secrets.DOJO_URL }}/api/v2/import-scan/" \
+          -H "Authorization: Token ${{ secrets.DOJO_TOKEN }}" \
+          -F "active=true" \
+          -F "verified=true" \
+          -F "scan_type=Newman JSON Scan" \
+          -F "product_name=Plateforme Offensive PFE" \
+          -F "engagement_name=Audit API Automatisé" \
+          -F "file=@report.json"
+
+      # 3. Archive le rapport HTML sur GitHub
+      - name: Archive HTML Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: api-security-report
+          name: api-report-html
           path: report.html
-          retention-days: 5
