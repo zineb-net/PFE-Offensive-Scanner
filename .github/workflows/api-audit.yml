@@ -12,8 +12,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Exécution du scan Newman
-      # On génère le JSON spécifiquement pour l'import Dojo
+      # 1. Génération des rapports (HTML pour toi, JSON pour Dojo)
       - name: Execute Newman Scan
         run: |
           newman run vAPI.postman_collection.json \
@@ -25,8 +24,8 @@ jobs:
           --timeout-request 10000
         continue-on-error: true
 
-      # 2. Envoi automatique vers DefectDojo (Windows)
-      # ESSAI : scan_type="Newman JSON Scan" (C'est le standard officiel)
+      # 2. Upload vers DefectDojo
+      # CHANGEMENT ICI : scan_type="Newman JSON Scan"
       - name: Upload to DefectDojo
         run: |
           curl -X POST "${{ secrets.DOJO_URL }}/api/v2/import-scan/" \
@@ -38,7 +37,7 @@ jobs:
           -F "engagement_name=Audit API Automatisé" \
           -F "file=@report.json"
 
-      # 3. Archive du rapport HTML sur GitHub pour tes preuves de PFE
+      # 3. Sauvegarde du rapport HTML
       - name: Archive HTML Report
         if: always()
         uses: actions/upload-artifact@v4
