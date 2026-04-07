@@ -6,22 +6,13 @@ on:
 
 jobs:
   newman-audit:
-    # On utilise ton Runner-API-Offensive sur ta Kali
     runs-on: self-hosted 
 
     steps:
-      # 1. Récupération des fichiers du dépôt
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Vérification/Installation rapide de Newman sur la Kali
-      - name: Check Newman Installation
-        run: |
-          npm install -g newman newman-reporter-htmlextra
-          echo "Newman version:"
-          newman -v
-
-      # 3. EXÉCUTION DU SCAN (C'est ici que le rapport est créé)
+      # On retire l'installation NPM car elle demande des droits SUDO que le runner n'a pas
       - name: Execute Security Collection
         run: |
           newman run vAPI.postman_collection.json \
@@ -31,10 +22,8 @@ jobs:
           --env-var "baseUrl=http://192.168.159.131:8000" \
           --timeout-request 10000 \
           --ignore-redirects
-        # On continue même si Newman trouve des failles (exit code 1)
         continue-on-error: true 
 
-      # 4. ENVOI DU RAPPORT SUR GITHUB (Pour téléchargement)
       - name: Upload Scan Report
         if: always()
         uses: actions/upload-artifact@v4
