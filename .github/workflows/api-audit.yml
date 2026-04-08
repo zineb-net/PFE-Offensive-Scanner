@@ -29,7 +29,7 @@ jobs:
           -H "Authorization: Token ${{ secrets.DOJO_TOKEN }}" \
           -F "active=true" \
           -F "verified=true" \
-          -F "scan_type=Newman JSON Report" \
+          -F "scan_type=Postman Newman JSON Report" \
           -F "product_name=Plateforme Offensive PFE" \
           -F "engagement_name=Audit API Automatisé" \
           -F "file=@report.json"
