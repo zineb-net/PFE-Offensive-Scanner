@@ -12,7 +12,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Génération des rapports (HTML pour toi, JSON pour Dojo)
+      # 1. Exécution du scan Newman sur ta Kali
       - name: Execute Newman Scan
         run: |
           newman run vAPI.postman_collection.json \
@@ -24,20 +24,19 @@ jobs:
           --timeout-request 10000
         continue-on-error: true
 
-      # 2. Upload vers DefectDojo
-      # CHANGEMENT ICI : scan_type="Newman JSON Scan"
+      # 2. Envoi vers DefectDojo avec le type "Generic Findings Import"
       - name: Upload to DefectDojo
         run: |
           curl -X POST "${{ secrets.DOJO_URL }}/api/v2/import-scan/" \
           -H "Authorization: Token ${{ secrets.DOJO_TOKEN }}" \
           -F "active=true" \
           -F "verified=true" \
-          -F "scan_type=Newman JSON Scan" \
+          -F "scan_type=Generic Findings Import" \
           -F "product_name=Plateforme Offensive PFE" \
           -F "engagement_name=Audit API Automatisé" \
           -F "file=@report.json"
 
-      # 3. Sauvegarde du rapport HTML
+      # 3. Archive du rapport HTML pour tes preuves de PFE
       - name: Archive HTML Report
         if: always()
         uses: actions/upload-artifact@v4
