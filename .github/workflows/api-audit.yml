@@ -12,8 +12,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Exécution du scan Newman sur la Kali
-      # On génère le JSON que DefectDojo va analyser
       - name: Execute Newman Scan
         run: |
           newman run vAPI.postman_collection.json \
@@ -25,20 +23,17 @@ jobs:
           --timeout-request 10000
         continue-on-error: true
 
-      # 2. Importation automatique dans DefectDojo (Windows)
-      # Utilisation du scan_type officiel pour mapper les vulnérabilités
       - name: Upload to DefectDojo
         run: |
           curl -L -X POST "${{ secrets.DOJO_URL }}/api/v2/import-scan/" \
           -H "Authorization: Token ${{ secrets.DOJO_TOKEN }}" \
           -F "active=true" \
           -F "verified=true" \
-          -F "scan_type=Newman JSON Scan" \
+          -F "scan_type=Newman JSON Report" \
           -F "product_name=Plateforme Offensive PFE" \
           -F "engagement_name=Audit API Automatisé" \
           -F "file=@report.json"
 
-      # 3. Archive du rapport HTML (ton beau dashboard vert)
       - name: Archive HTML Report
         if: always()
         uses: actions/upload-artifact@v4
