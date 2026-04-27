@@ -8,41 +8,29 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout du code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # --- ÉTAPE 1 : QUICK SCAN (NUCLEI) ---
       - name: Quick Scan - Nuclei
         uses: projectdiscovery/nuclei-action@v3
         with:
-          # On s'assure que nuclei ne bloque pas le workflow s'il trouve des vulnérabilités
           args: "-u ${{ github.event.client_payload.url }} -jsonl -o nuclei_results.json"
 
-      # --- ÉTAPE 2 : SCAN APPROFONDI (OWASP ZAP) ---
       - name: Deep Scan - OWASP ZAP
         if: ${{ github.event.client_payload.mode == 'approf' }}
         uses: zaproxy/action-full-scan@v0.12.0
         with:
           target: ${{ github.event.client_payload.url }}
-          # On force le format JSON pour le futur module IA
           cmd_options: '-J report_zap.json'
 
-      # --- ÉTAPE 3 : NORMALISATION POUR L'IA (Optionnel mais recommandé) ---
-      # On regroupe les fichiers présents pour éviter les erreurs d'upload
-      - name: Preparation des donnees
+      - name: Prepare Artifacts
         run: |
-          mkdir -p results_to_ai
-          [ -f nuclei_results.json ] && cp nuclei_results.json results_to_ai/
-          [ -f report_zap.json ] && cp report_zap.json results_to_ai/
+          mkdir -p results
+          [ -f nuclei_results.json ] && cp nuclei_results.json results/
+          [ -f report_zap.json ] && cp report_zap.json results/
 
-      # --- ÉTAPE 4 : ARCHIVAGE DES RÉSULTATS ---
-      - name: Archive des Rapports
+      - name: Upload Results
         uses: actions/upload-artifact@v4
         with:
-          name: security-results-${{ github.run_id }}
-          path: results_to_ai/
-          if-no-files-found: error
-
-      # --- ÉTAPE 5 : NOTIFICATION / CALLBACK (Pour ton Dashboard) ---
-      # Ici, on pourrait envoyer un signal à ton application pour dire "Le scan est fini, lance l'IA"
-      
+          name: scan-results
+          path: results/
