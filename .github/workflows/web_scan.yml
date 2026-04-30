@@ -1,36 +1,26 @@
-name: "Plateforme Offensive Web - Multi-Niveaux"
+name: Web Security Scan
 
 on:
-  repository_dispatch:
-    types: [web_scan_event]
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'URL de la cible à scanner'
+        required: true
+        default: 'http://example.com'
+      scan_mode:
+        description: 'Mode de scan (quick ou approf)'
+        required: true
+        default: 'quick'
 
 jobs:
-  security-scan:
+  scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Quick Scan - Nuclei
-        uses: projectdiscovery/nuclei-action@v3
-        with:
-          args: "-u ${{ github.event.client_payload.url }} -jsonl -o nuclei_results.json"
-
-      - name: Deep Scan - OWASP ZAP
-        if: ${{ github.event.client_payload.mode == 'approf' }}
-        uses: zaproxy/action-full-scan@v0.12.0
-        with:
-          target: ${{ github.event.client_payload.url }}
-          cmd_options: '-J report_zap.json'
-
-      - name: Prepare Artifacts
+      # Tes étapes de scan (Nuclei, ZAP, etc.) ici...
+      - name: Run Scan
         run: |
-          mkdir -p results
-          [ -f nuclei_results.json ] && cp nuclei_results.json results/
-          [ -f report_zap.json ] && cp report_zap.json results/
-
-      - name: Upload Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: scan-results
-          path: results/
+          echo "Scanning target: ${{ github.event.inputs.target_url }}"
+          echo "Mode: ${{ github.event.inputs.scan_mode }}"
