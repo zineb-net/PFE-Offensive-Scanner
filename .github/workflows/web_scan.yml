@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: 'URL de la cible à scanner'
+        description: 'URL de la cible'
         required: true
       scan_mode:
-        description: 'Mode de scan (quick ou approf)'
+        description: 'Mode (quick/approf)'
         required: true
 
 jobs:
@@ -17,32 +17,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Installation de Nuclei (Scanner de vulnérabilités rapide)
       - name: Install Nuclei
         run: |
           go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
           echo "$HOME/go/bin" >> $GITHUB_PATH
 
-      # 2. Exécution du scan Nuclei
       - name: Run Nuclei Scan
+        # On ajoute -ni (no-interact) et on force la sortie même si erreur
         run: |
-          nuclei -u ${{ github.event.inputs.target_url }} -json -o nuclei_results.json
+          nuclei -u ${{ github.event.inputs.target_url }} -json -o nuclei_results.json -ni
         continue-on-error: true
 
-      # 3. Exécution de OWASP ZAP (Scanner Web complet)
-      # On utilise l'action officielle ZAP
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
           target: ${{ github.event.inputs.target_url }}
+          # ZAP crée par défaut un fichier nommé 'report_json.json' ou similaire
           artifact_name: 'zap_report'
         continue-on-error: true
 
-      # 4. Exportation des résultats pour ton backend Python
+      # Correction de l'upload : on utilise un wildcard (*) pour être sûr de tout prendre
       - name: Upload Scan Artifacts
+        if: always() # S'exécute même si Nuclei ou ZAP ont échoué
         uses: actions/upload-artifact@v4
         with:
           name: security-results
           path: |
             nuclei_results.json
-            report_zap.json
+            *.json
+            *.html
