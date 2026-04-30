@@ -6,11 +6,9 @@ on:
       target_url:
         description: 'URL de la cible à scanner'
         required: true
-        default: 'http://example.com'
       scan_mode:
         description: 'Mode de scan (quick ou approf)'
         required: true
-        default: 'quick'
 
 jobs:
   scan:
@@ -19,8 +17,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Tes étapes de scan (Nuclei, ZAP, etc.) ici...
-      - name: Run Scan
+      # 1. Installation de Nuclei (Scanner de vulnérabilités rapide)
+      - name: Install Nuclei
         run: |
-          echo "Scanning target: ${{ github.event.inputs.target_url }}"
-          echo "Mode: ${{ github.event.inputs.scan_mode }}"
+          go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      # 2. Exécution du scan Nuclei
+      - name: Run Nuclei Scan
+        run: |
+          nuclei -u ${{ github.event.inputs.target_url }} -json -o nuclei_results.json
+        continue-on-error: true
+
+      # 3. Exécution de OWASP ZAP (Scanner Web complet)
+      # On utilise l'action officielle ZAP
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: ${{ github.event.inputs.target_url }}
+          artifact_name: 'zap_report'
+        continue-on-error: true
+
+      # 4. Exportation des résultats pour ton backend Python
+      - name: Upload Scan Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-results
+          path: |
+            nuclei_results.json
+            report_zap.json
