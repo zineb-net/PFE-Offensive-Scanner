@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: 'URL de la cible'
+        description: 'URL de la cible à scanner'
         required: true
       scan_mode:
-        description: 'Mode (quick/approf)'
+        description: 'Mode (quick ou approf)'
         required: true
 
 jobs:
@@ -23,26 +23,24 @@ jobs:
           echo "$HOME/go/bin" >> $GITHUB_PATH
 
       - name: Run Nuclei Scan
-        # On ajoute -ni (no-interact) et on force la sortie même si erreur
+        # Correction CRITIQUE : on utilise -jsonl au lieu de -json
         run: |
-          nuclei -u ${{ github.event.inputs.target_url }} -json -o nuclei_results.json -ni
+          nuclei -u ${{ github.event.inputs.target_url }} -jsonl -o nuclei_results.json -ni
         continue-on-error: true
 
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
           target: ${{ github.event.inputs.target_url }}
-          # ZAP crée par défaut un fichier nommé 'report_json.json' ou similaire
           artifact_name: 'zap_report'
         continue-on-error: true
 
-      # Correction de l'upload : on utilise un wildcard (*) pour être sûr de tout prendre
       - name: Upload Scan Artifacts
-        if: always() # S'exécute même si Nuclei ou ZAP ont échoué
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: security-results
           path: |
             nuclei_results.json
+            report_zap.json
             *.json
-            *.html
