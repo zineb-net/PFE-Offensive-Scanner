@@ -11,39 +11,39 @@ on:
         options:
           - anonyme
           - authentifie
+      target_ip:
+        description: 'IP cible (ex: 192.168.159.100)'
+        required: true
+        default: '192.168.159.100'
 
 jobs:
   offensive_task:
     runs-on: [self-hosted, kali]
     steps:
       - name: 1. Vérification réseau
-        run: ping -c 2 192.168.159.100
+        run: ping -c 2 ${{ github.event.inputs.target_ip }}
 
-      # --- SCÉNARIO A : SCAN ANONYME (RECONNAISSANCE BLACK BOX) ---
-      - name: Lancer Scan Anonyme (Nmap)
+      # --- SCÉNARIO A : SCAN ANONYME (Nmap NSE avancés) ---
+      - name: Lancer Scan Anonyme (Nmap NSE)
         if: ${{ github.event.inputs.scan_type == 'anonyme' }}
         run: |
-          # On cherche les protocoles et la sécurité SMB sans login
-          nmap -Pn -p 445 \
-            --script smb-protocols,smb2-security-mode,smb-os-discovery \
-            192.168.159.100 -oX ad_report.xml
+          # Utilisation de scripts NSE pour l'énumération profonde
+          nmap -Pn -p 445,139,389 \
+            --script smb-protocols,smb2-security-mode,smb-os-discovery,smb-enum-shares,ldap-rootdse \
+            ${{ github.event.inputs.target_ip }} -oX ad_report.xml
 
-      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ (ÉNUMÉRATION WHITE BOX) ---
-      - name: Lancer Scan Authentifié Profond (Enum4linux-ng)
+      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ ---
+      - name: Lancer Scan Authentifié (Enum4linux-ng)
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
         env:
           USER: "user.std"
           PASS: ${{ secrets.AD_PASSWORD }}
           DOMAIN: "PFE"
         run: |
-          # On utilise '>' pour créer le fichier ad_report.json sans erreur de dossier
-          # -A : Lance tous les tests (Users, Groupes, Shares, Password Policy)
-          # || true : Empêche GitHub de marquer en rouge si des failles sont trouvées
-          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A 192.168.159.100 > ad_report.json || true
+          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A ${{ github.event.inputs.target_ip }} > ad_report.json || true
 
-      # --- ÉTAPE COMMUNE : ARCHIVAGE DU RAPPORT POUR LE DASHBOARD ---
       - name: Archivage du rapport
-        if: always() # Obligatoire pour récupérer le fichier même si l'outil renvoie une alerte
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rapport-${{ github.event.inputs.scan_type }}
