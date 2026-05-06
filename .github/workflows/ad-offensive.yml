@@ -16,11 +16,11 @@ on:
         required: true
         default: '192.168.159.100'
       username:
-        description: 'Nom d utilisateur (pour scan authentifié)'
+        description: 'Nom d utilisateur (laisser vide pour anonyme)'
         required: false
         default: ''
       password:
-        description: 'Mot de passe (pour scan authentifié)'
+        description: 'Mot de passe (laisser vide pour anonyme)'
         required: false
         default: ''
 
@@ -31,28 +31,21 @@ jobs:
       - name: 1. Vérification réseau
         run: ping -c 2 ${{ github.event.inputs.target_ip }}
 
-      # --- SCÉNARIO A : SCAN ANONYME ---
-      - name: Lancer Scan Anonyme (Enum4linux-ng)
-        if: ${{ github.event.inputs.scan_type == 'anonyme' }}
+      # --- SCÉNARIO : EXÉCUTION DU SCAN ---
+      - name: Lancer le Scan Enum4linux-ng
         run: |
-          echo "🚀 Lancement du scan anonyme"
-          enum4linux-ng -A ${{ github.event.inputs.target_ip }} -j ad_report.json || true
-
-      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ ---
-      - name: Lancer Scan Authentifié (Enum4linux-ng)
-        if: ${{ github.event.inputs.scan_type == 'authentifie' }}
-        run: |
-          # Utilisation de guillemets simples pour protéger le mot de passe (IMPORTANT pour le '!')
+          IP='${{ github.event.inputs.target_ip }}'
           USER='${{ github.event.inputs.username }}'
           PASS='${{ github.event.inputs.password }}'
-          IP='${{ github.event.inputs.target_ip }}'
-          DOMAIN='PFE'
-
-          # Fallback si le username n'est pas envoyé par le script
-          if [ -z "$USER" ]; then USER="support.it"; fi
-
-          echo "🔥 Tentative de scan authentifié avec $USER"
-          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A "$IP" -j ad_report.json || true
+          
+          if [ -z "$USER" ]; then
+            echo "🚀 Lancement d'un scan ANONYME sur $IP"
+            # C'est cette commande qui génère ton rapport (sans -u ni -p)
+            enum4linux-ng -A "$IP" -j ad_report.json || true
+          else
+            echo "🔥 Lancement d'un scan AUTHENTIFIÉ pour $USER"
+            enum4linux-ng -u "$USER" -p "$PASS" -A "$IP" -j ad_report.json || true
+          fi
 
       - name: Archivage du rapport
         if: always()
