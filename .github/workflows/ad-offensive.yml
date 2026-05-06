@@ -35,31 +35,24 @@ jobs:
       - name: Lancer Scan Anonyme (Enum4linux-ng)
         if: ${{ github.event.inputs.scan_type == 'anonyme' }}
         run: |
-          echo "🚀 Lancement du scan anonyme sur ${{ github.event.inputs.target_ip }}"
-          # -j pour le JSON, || echo pour garantir qu'un fichier existe même en cas d'erreur
-          enum4linux-ng -A ${{ github.event.inputs.target_ip }} -j ad_report.json || echo "{\"status\": \"error\", \"msg\": \"Echec scan anonyme\"}" > ad_report.json
+          echo "🚀 Lancement du scan anonyme"
+          enum4linux-ng -A ${{ github.event.inputs.target_ip }} -j ad_report.json || true
 
       # --- SCÉNARIO B : SCAN AUTHENTIFIÉ ---
       - name: Lancer Scan Authentifié (Enum4linux-ng)
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
         run: |
-          # Utilisation de guillemets simples pour protéger les caractères spéciaux
+          # Utilisation de guillemets simples pour protéger le mot de passe (IMPORTANT pour le '!')
           USER='${{ github.event.inputs.username }}'
           PASS='${{ github.event.inputs.password }}'
           IP='${{ github.event.inputs.target_ip }}'
           DOMAIN='PFE'
 
+          # Fallback si le username n'est pas envoyé par le script
           if [ -z "$USER" ]; then USER="support.it"; fi
 
-          echo "🔥 Tentative d'authentification sur $IP avec l'utilisateur $USER"
-
-          # Ajout de -v (verbose) pour le debug et redirection des erreurs (2>&1)
-          # On tente de générer le JSON. Si ça échoue, on écrit l'erreur dans le fichier.
-          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A "$IP" -j ad_report.json -v 2>&1 || echo "{\"error\": \"Echec authentification ou accès refusé\"}" > ad_report.json
-          
-          # --- DEBUG ---
-          echo "Vérification du contenu du rapport généré :"
-          cat ad_report.json
+          echo "🔥 Tentative de scan authentifié avec $USER"
+          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A "$IP" -j ad_report.json || true
 
       - name: Archivage du rapport
         if: always()
