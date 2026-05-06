@@ -32,26 +32,30 @@ jobs:
         run: ping -c 2 ${{ github.event.inputs.target_ip }}
 
       # --- SCÉNARIO A : SCAN ANONYME ---
-      - name: Lancer Scan Anonyme
+      - name: Lancer Scan Anonyme (Nmap + Enum4linux-ng basic)
         if: ${{ github.event.inputs.scan_type == 'anonyme' }}
         run: |
-          echo "🚀 Scan Anonyme en cours..."
+          # Utilisation de scripts NSE pour l'énumération profonde
+          nmap -Pn -p 445,139,389 \
+            --script smb-protocols,smb2-security-mode,smb-os-discovery,smb-enum-shares,ldap-rootdse \
+            ${{ github.event.inputs.target_ip }} -oX ad_report.xml
+          # On génère un format JSON pour que Llama puisse le lire facilement
           enum4linux-ng -A ${{ github.event.inputs.target_ip }} -j ad_report.json || true
 
       # --- SCÉNARIO B : SCAN AUTHENTIFIÉ (CHAINING) ---
-      - name: Lancer Scan Authentifié
+      - name: Lancer Scan Authentifié (Enum4linux-ng)
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
         run: |
-          # Récupération des inputs envoyés par ton script Python
+          # On utilise les credentials envoyés par le script Python
           USER="${{ github.event.inputs.username }}"
           if [ -z "$USER" ]; then USER="support.it"; fi
           
-          PASS='${{ github.event.inputs.password }}'
+          PASS="${{ github.event.inputs.password }}"
           
-          echo "🔥 Connexion avec l'utilisateur: $USER"
+          echo "🔥 Lancement de l'exploitation authentifiée avec l'utilisateur: $USER"
           
-          # Utilisation de enum4linux-ng en mode authentifié avec sortie JSON
-          enum4linux-ng -u "$USER" -p "$PASS" -w "PFE" -A ${{ github.event.inputs.target_ip }} -j ad_report.json || echo "{\"error\": \"failed\"}" > ad_report.json
+          # Exécution de enum4linux-ng avec les paramètres d'entrée
+          enum4linux-ng -u "$USER" -p "$PASS" -w "PFE" -A ${{ github.event.inputs.target_ip }} -j ad_report.json || true
 
       - name: Archivage du rapport
         if: always()
