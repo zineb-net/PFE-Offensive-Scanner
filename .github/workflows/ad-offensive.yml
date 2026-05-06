@@ -15,7 +15,6 @@ on:
         description: 'IP cible (ex: 192.168.159.100)'
         required: true
         default: '192.168.159.100'
-      # Ces champs sont remplis automatiquement par ton script Python lors du Chaining
       username:
         description: 'Nom d utilisateur (pour scan authentifié)'
         required: false
@@ -37,29 +36,34 @@ jobs:
         if: ${{ github.event.inputs.scan_type == 'anonyme' }}
         run: |
           echo "🚀 Lancement du scan anonyme sur ${{ github.event.inputs.target_ip }}"
-          # On utilise -j pour forcer le format JSON pour l'IA
-          enum4linux-ng -A ${{ github.event.inputs.target_ip }} -j ad_report.json || echo "{\"status\": \"error\"}" > ad_report.json
+          # -j pour le JSON, || echo pour garantir qu'un fichier existe même en cas d'erreur
+          enum4linux-ng -A ${{ github.event.inputs.target_ip }} -j ad_report.json || echo "{\"status\": \"error\", \"msg\": \"Echec scan anonyme\"}" > ad_report.json
 
       # --- SCÉNARIO B : SCAN AUTHENTIFIÉ ---
       - name: Lancer Scan Authentifié (Enum4linux-ng)
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
         run: |
-         - name: Lancer Scan Authentifié (Enum4linux-ng)
-        if: ${{ github.event.inputs.scan_type == 'authentifie' }}
-        run: |
+          # Utilisation de guillemets simples pour protéger les caractères spéciaux
           USER='${{ github.event.inputs.username }}'
           PASS='${{ github.event.inputs.password }}'
           IP='${{ github.event.inputs.target_ip }}'
           DOMAIN='PFE'
 
-          # On force l'utilisateur support.it si vide
           if [ -z "$USER" ]; then USER="support.it"; fi
 
-          echo "DEBUG: Tentative avec $USER / $PASS"
+          echo "🔥 Tentative d'authentification sur $IP avec l'utilisateur $USER"
 
-          # On utilise -v (verbose) pour voir l'erreur dans la console
-          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A "$IP" -j ad_report.json -v
-
-          # TRÈS IMPORTANT : Affiche le contenu pour que tu puisses le lire dans GitHub Actions
-          echo "--- CONTENU DU RAPPORT ---"
+          # Ajout de -v (verbose) pour le debug et redirection des erreurs (2>&1)
+          # On tente de générer le JSON. Si ça échoue, on écrit l'erreur dans le fichier.
+          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A "$IP" -j ad_report.json -v 2>&1 || echo "{\"error\": \"Echec authentification ou accès refusé\"}" > ad_report.json
+          
+          # --- DEBUG ---
+          echo "Vérification du contenu du rapport généré :"
           cat ad_report.json
+
+      - name: Archivage du rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-ad
+          path: ad_report.json
