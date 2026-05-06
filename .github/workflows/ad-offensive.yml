@@ -44,25 +44,22 @@ jobs:
       - name: Lancer Scan Authentifié (Enum4linux-ng)
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
         run: |
-          # Utilisation de guillemets simples pour protéger les caractères spéciaux comme '!' ou '*'
+         - name: Lancer Scan Authentifié (Enum4linux-ng)
+        if: ${{ github.event.inputs.scan_type == 'authentifie' }}
+        run: |
           USER='${{ github.event.inputs.username }}'
           PASS='${{ github.event.inputs.password }}'
           IP='${{ github.event.inputs.target_ip }}'
           DOMAIN='PFE'
 
-          # Si le script Python n'a pas envoyé de user, on met une valeur par défaut
+          # On force l'utilisateur support.it si vide
           if [ -z "$USER" ]; then USER="support.it"; fi
 
-          echo "🔥 Tentative d'authentification sur $IP avec l'utilisateur $USER"
+          echo "DEBUG: Tentative avec $USER / $PASS"
 
-          # Exécution avec format JSON (-j)
-          # Le '2>&1' permet de voir les erreurs dans les logs si le scan échoue
-          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A "$IP" -j ad_report.json 2>&1 || echo "{\"error\": \"Echec authentification ou accès refusé\"}" > ad_report.json
+          # On utilise -v (verbose) pour voir l'erreur dans la console
+          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A "$IP" -j ad_report.json -v
 
-      - name: Archivage du rapport
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rapport-ad
-          # On archive toujours ad_report.json
-          path: ad_report.json
+          # TRÈS IMPORTANT : Affiche le contenu pour que tu puisses le lire dans GitHub Actions
+          echo "--- CONTENU DU RAPPORT ---"
+          cat ad_report.json
