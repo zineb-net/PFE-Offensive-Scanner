@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       scan_type:
-        description: 'Stratégie de scan'
+        description: 'Stratégie de scan à lancer'
         required: true
         default: 'anonyme'
         type: choice
@@ -12,17 +12,9 @@ on:
           - anonyme
           - authentifie
       target_ip:
-        description: 'IP cible'
+        description: 'IP cible (ex: 192.168.159.100)'
         required: true
         default: '192.168.159.100'
-      username:
-        description: 'Utilisateur pour scan authentifié'
-        required: false
-        default: ''
-      password:
-        description: 'Mot de passe pour scan authentifié'
-        required: false
-        default: ''
 
 jobs:
   offensive_task:
@@ -31,35 +23,28 @@ jobs:
       - name: 1. Vérification réseau
         run: ping -c 2 ${{ github.event.inputs.target_ip }}
 
-      # --- SCÉNARIO A : SCAN ANONYME ---
-      - name: Lancer Scan Anonyme (Nmap + Enum4linux-ng basic)
+      # --- SCÉNARIO A : SCAN ANONYME (Nmap NSE avancés) ---
+      - name: Lancer Scan Anonyme (Nmap NSE)
         if: ${{ github.event.inputs.scan_type == 'anonyme' }}
         run: |
           # Utilisation de scripts NSE pour l'énumération profonde
           nmap -Pn -p 445,139,389 \
             --script smb-protocols,smb2-security-mode,smb-os-discovery,smb-enum-shares,ldap-rootdse \
             ${{ github.event.inputs.target_ip }} -oX ad_report.xml
-          # On génère un format JSON pour que Llama puisse le lire facilement
-          enum4linux-ng -A ${{ github.event.inputs.target_ip }} -j ad_report.json || true
 
-      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ (CHAINING) ---
+      # --- SCÉNARIO B : SCAN AUTHENTIFIÉ ---
       - name: Lancer Scan Authentifié (Enum4linux-ng)
         if: ${{ github.event.inputs.scan_type == 'authentifie' }}
+        env:
+          USER: "user.std"
+          PASS: ${{ secrets.AD_PASSWORD }}
+          DOMAIN: "PFE"
         run: |
-          # On utilise les credentials envoyés par le script Python
-          USER="${{ github.event.inputs.username }}"
-          if [ -z "$USER" ]; then USER="support.it"; fi
-          
-          PASS="${{ github.event.inputs.password }}"
-          
-          echo "🔥 Lancement de l'exploitation authentifiée avec l'utilisateur: $USER"
-          
-          # Exécution de enum4linux-ng avec les paramètres d'entrée
-          enum4linux-ng -u "$USER" -p "$PASS" -w "PFE" -A ${{ github.event.inputs.target_ip }} -j ad_report.json || true
+          enum4linux-ng -u "$USER" -p "$PASS" -w "$DOMAIN" -A ${{ github.event.inputs.target_ip }} > ad_report.json || true
 
       - name: Archivage du rapport
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rapport-ad
-          path: ad_report.json
+          name: rapport-${{ github.event.inputs.scan_type }}
+          path: ad_report.*
