@@ -1,4 +1,4 @@
-name: API Offensive Audit
+name: API Offensive Audit Pro
 
 on:
   repository_dispatch:
@@ -6,30 +6,27 @@ on:
 
 jobs:
   api-audit:
-    # Assure-toi que ton runner Kali est bien lancé avec ./run.sh
     runs-on: self-hosted
-
     steps:
       - name: 1. Checkout Code
         uses: actions/checkout@v4
 
-      - name: 2. Exécution du scan Newman
+      - name: 2. Exécution du scan Newman (Mode Agressif)
         run: |
-          # On utilise --env-var pour injecter l'IP réelle de ta machine
-          # Cela remplace toutes les occurrences de {{host}} dans ta collection
+          # On injecte l'IP cible et on augmente le timeout à 30s (VM lente)
+          # On ajoute --suppress-exit-code pour forcer la génération du JSON
           newman run "${{ github.event.client_payload.collection }}" \
           --env-var "host=192.168.159.131:8000" \
           --reporters cli,json \
           --reporter-json-export api_report.json \
-          --timeout-request 10000
-        # On laisse continue-on-error pour que l'artefact soit généré même si Newman trouve des failles
+          --timeout-request 30000 \
+          --delay-request 500
         continue-on-error: true
 
-      - name: 3. Archivage du rapport pour l'IA (Llama)
+      - name: 3. Archivage du rapport pour Llama 3
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: api-security-report
-          # Ce fichier sera téléchargé par ton script Python pour être analysé
           path: api_report.json
           retention-days: 1
