@@ -1,4 +1,4 @@
-name: API Offensive Audit to DefectDojo
+name: API Offensive Audit
 
 on:
   repository_dispatch:
@@ -6,41 +6,32 @@ on:
 
 jobs:
   api-audit:
+    # Assure-toi que ton runner Kali est bien lancé avec ./run.sh
     runs-on: self-hosted
 
     steps:
-      - name: Checkout Code
+      - name: 1. Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Exécution du scan Newman sur ta Kali
-      - name: Execute Newman Scan
+      - name: 2. Exécution du scan Newman
         run: |
-          newman run vAPI.postman_collection.json \
-          --reporters cli,htmlextra,json \
-          --reporter-htmlextra-export report.html \
-          --reporter-json-export report.json \
-          --env-var "host=192.168.159.131:8000" \
-          --env-var "baseUrl=http://192.168.159.131:8000" \
+          # On installe newman s'il n'est pas présent (optionnel si déjà sur Kali)
+          # npm install -g newman
+          
+          # On lance le scan sur l'URL de collection envoyée par l'interface
+          # On génère un rapport JSON propre pour l'IA
+          newman run "${{ github.event.client_payload.collection }}" \
+          --reporters cli,json \
+          --reporter-json-export api_report.json \
           --timeout-request 10000
+        # On met true pour que le workflow continue même si Newman trouve des vulnérabilités
         continue-on-error: true
 
-      # 2. Envoi vers DefectDojo
-      # Essai avec le nom complet : "Postman Newman JSON Report"
-      - name: Upload to DefectDojo
-        run: |
-          curl -X POST "${{ secrets.DOJO_URL }}/api/v2/import-scan/" \
-          -H "Authorization: Token ${{ secrets.DOJO_TOKEN }}" \
-          -F "active=true" \
-          -F "verified=true" \
-          -F "scan_type=Postman Newman JSON Report" \
-          -F "product_name=Plateforme Offensive PFE" \
-          -F "engagement_name=Audit API Automatisé" \
-          -F "file=@report.json"
-
-      # 3. Archive du rapport HTML pour tes annexes de PFE
-      - name: Archive HTML Report
+      - name: 3. Archivage du rapport pour l'IA (Llama)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: api-security-report
-          path: report.html
+          # C'est ce fichier que ton script Python va télécharger
+          path: api_report.json
+          retention-days: 1
