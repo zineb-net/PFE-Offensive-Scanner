@@ -15,16 +15,14 @@ jobs:
 
       - name: 2. Exécution du scan Newman
         run: |
-          # On installe newman s'il n'est pas présent (optionnel si déjà sur Kali)
-          # npm install -g newman
-          
-          # On lance le scan sur l'URL de collection envoyée par l'interface
-          # On génère un rapport JSON propre pour l'IA
+          # On utilise --env-var pour injecter l'IP réelle de ta machine
+          # Cela remplace toutes les occurrences de {{host}} dans ta collection
           newman run "${{ github.event.client_payload.collection }}" \
+          --env-var "host=192.168.159.131:8000" \
           --reporters cli,json \
           --reporter-json-export api_report.json \
           --timeout-request 10000
-        # On met true pour que le workflow continue même si Newman trouve des vulnérabilités
+        # On laisse continue-on-error pour que l'artefact soit généré même si Newman trouve des failles
         continue-on-error: true
 
       - name: 3. Archivage du rapport pour l'IA (Llama)
@@ -32,6 +30,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: api-security-report
-          # C'est ce fichier que ton script Python va télécharger
+          # Ce fichier sera téléchargé par ton script Python pour être analysé
           path: api_report.json
           retention-days: 1
