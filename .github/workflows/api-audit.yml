@@ -1,32 +1,96 @@
-name: API Offensive Audit Pro
+name: API Offensive Audit to DefectDojo
 
 on:
+  workflow_dispatch:
+    inputs:
+      collection:
+        description: "Postman collection path or URL"
+        required: false
+        default: "vAPI.postman_collection.json"
+      api_name:
+        description: "API name shown in orchestration metadata"
+        required: false
+        default: "vAPI-Target"
+      environment_url:
+        description: "Optional Postman environment URL"
+        required: false
+
   repository_dispatch:
     types: [newman_scan_event]
 
 jobs:
   api-audit:
     runs-on: self-hosted
+
     steps:
-      - name: 1. Checkout Code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: 2. Exécution du scan Newman (Mode Agressif)
+      - name: Resolve scan parameters
+        id: params
+        shell: bash
         run: |
-          # On injecte l'IP cible et on augmente le timeout à 30s (VM lente)
-          # On ajoute --suppress-exit-code pour forcer la génération du JSON
-          newman run "${{ github.event.client_payload.collection }}" \
-          --env-var "host=192.168.159.131:8000" \
-          --reporters cli,json \
-          --reporter-json-export api_report.json \
-          --timeout-request 30000 \
-          --delay-request 500
+          collection="${{ github.event.inputs.collection || github.event.client_payload.collection || 'vAPI.postman_collection.json' }}"
+          api_name="${{ github.event.inputs.api_name || github.event.client_payload.api_name || 'vAPI-Target' }}"
+          environment_url="${{ github.event.inputs.environment_url || github.event.client_payload.environment_url }}"
+
+          echo "collection=$collection"       >> "$GITHUB_OUTPUT"
+          echo "api_name=$api_name"           >> "$GITHUB_OUTPUT"
+          echo "environment_url=$environment_url" >> "$GITHUB_OUTPUT"
+          echo "✅ Paramètres API résolus → collection=$collection | api_name=$api_name"
+
+      - name: Clean previous API artifacts
+        shell: bash
+        run: |
+          rm -f report.json report.html api_report.json api_report.html
+          echo "✅ Anciens artefacts API supprimés"
+
+      # 1a. Installation des reporters Newman (htmlextra n'est pas fourni par défaut)
+      - name: Install Newman reporters
+        shell: bash
+        run: |
+          npm install -g newman newman-reporter-htmlextra --no-fund --quiet
+          echo "✅ Newman + reporter htmlextra installés"
+
+      # 1b. Exécution du scan Newman sur ta Kali
+      - name: Execute Newman Scan
+        shell: bash
+        run: |
+          env_arg=()
+          if [ -n "${{ steps.params.outputs.environment_url }}" ]; then
+            env_arg=(--environment "${{ steps.params.outputs.environment_url }}")
+          fi
+
+          newman run "${{ steps.params.outputs.collection }}" \
+            "${env_arg[@]}" \
+            --reporters cli,htmlextra,json \
+            --reporter-htmlextra-export report.html \
+            --reporter-json-export report.json \
+            --env-var "host=192.168.159.131:8000" \
+            --env-var "baseUrl=http://192.168.159.131:8000" \
+            --timeout-request 10000
         continue-on-error: true
 
-      - name: 3. Archivage du rapport pour Llama 3
+      # 2. Envoi vers DefectDojo
+      - name: Upload to DefectDojo
+        run: |
+          curl -X POST "${{ secrets.DOJO_URL }}/api/v2/import-scan/" \
+          -H "Authorization: Token ${{ secrets.DOJO_TOKEN }}" \
+          -F "active=true" \
+          -F "verified=true" \
+          -F "scan_type=Postman Newman JSON Report" \
+          -F "product_name=Plateforme Offensive PFE" \
+          -F "engagement_name=${{ steps.params.outputs.api_name }}" \
+          -F "file=@report.json"
+        continue-on-error: true
+
+      # 3. Archive des rapports pour le backend et les annexes de PFE
+      - name: Archive API Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: api-security-report
-          path: api_report.json
-          retention-days: 1
+          path: |
+            report.json
+            report.html
+          if-no-files-found: warn
