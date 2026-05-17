@@ -1,46 +1,57 @@
-name: Web Security Scan
+name: "Plateforme Offensive Web - Multi-Niveaux"
 
 on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: 'URL de la cible à scanner'
+        description: "URL de la cible à scanner"
         required: true
-      scan_mode:
-        description: 'Mode (quick ou approf)'
+      scan_type:
+        description: "Mode de scan (quick ou approf)"
         required: true
+        default: "quick"
+        type: choice
+        options:
+          - quick
+          - approf
+
+  repository_dispatch:
+    types: [web_scan_event]
 
 jobs:
-  scan:
+  security-scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout du code
         uses: actions/checkout@v4
 
-      - name: Install Nuclei
-        run: |
-          go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-          echo "$HOME/go/bin" >> $GITHUB_PATH
-
-      - name: Run Nuclei Scan
-        # Correction CRITIQUE : on utilise -jsonl au lieu de -json
-        run: |
-          nuclei -u ${{ github.event.inputs.target_url }} -jsonl -o nuclei_results.json -ni
-        continue-on-error: true
-
-      - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.12.0
+      # --- ÉTAPE 1 : QUICK SCAN (NUCLEI V3) ---
+      # Utilisation de 'args' pour un contrôle total et éviter l'erreur 'exit code 2'
+      # Note : workflow_dispatch utilise inputs.target_url ;
+      #        repository_dispatch utilise client_payload.target_url (alias : client_payload.url)
+      - name: Quick Scan - Nuclei
+        uses: projectdiscovery/nuclei-action@v3
         with:
-          target: ${{ github.event.inputs.target_url }}
-          artifact_name: 'zap_report'
-        continue-on-error: true
+          args: "-u ${{ github.event.inputs.target_url || github.event.client_payload.target_url || github.event.client_payload.url }} -j -o nuclei_results.json"
 
-      - name: Upload Scan Artifacts
+      # --- ÉTAPE 2 : SCAN APPROFONDI (OWASP ZAP) ---
+      # S'exécute uniquement si le mode est 'approf'
+      - name: Deep Scan - OWASP ZAP
+        if: ${{ (github.event.inputs.scan_type || github.event.client_payload.mode) == 'approf' }}
+        uses: zaproxy/action-full-scan@v0.12.0
+        with:
+          target: ${{ github.event.inputs.target_url || github.event.client_payload.target_url || github.event.client_payload.url }}
+          cmd_options: '-J report_zap.json'
+
+      # --- ÉTAPE 3 : ARCHIVAGE DES RÉSULTATS ---
+      # Création de l'artéfact téléchargeable (ZIP)
+      # Note : report_json.json n'est pas généré — supprimé pour éviter les avertissements
+      - name: Archive des Rapports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: security-results
+          name: ${{ (github.event.inputs.scan_type || github.event.client_payload.mode) == 'approf' && 'Rapport-Complet' || 'Rapport-Quick' }}
           path: |
             nuclei_results.json
             report_zap.json
-            *.json
+          if-no-files-found: warn
